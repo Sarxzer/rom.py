@@ -1,0 +1,74 @@
+{
+  "Nintendo Gameboy": {
+    "id": "gb",
+    "base_url": "https://myrient.erista.me/files/No-Intro/Nintendo%20-%20Game%20Boy/",
+    "entries": "tbody tr",
+    "fields": {
+      "name": "td.link a",
+      "url": "td.link a",
+      "size": "td.size"
+    },
+    "download_folders": "./roms/gb/",
+    "ignore": {
+      "size": "-",
+      "name_contains": "Parent"
+    },
+    "regions": {
+      "USA": [
+        "(USA)",
+        "(U)",
+        "US"
+      ],
+      "Europe": [
+        "(Europe)",
+        "(E)",
+        "EU"
+      ],
+      "Japan": [
+        "(Japan)",
+        "(J)",
+        "JP"
+      ],
+      "World": [
+        "(World)",
+        "(W)"
+      ]
+    }
+  },
+  "Nintendo Gameboy Advance": {
+    "id": "gba",
+    "base_url": "https://myrient.erista.me/files/No-Intro/Nintendo%20-%20Game%20Boy%20Advance/",
+    "entries": "tbody tr",
+    "fields": {
+      "name": "td.link a",
+      "url": "td.link a",
+      "size": "td.size"
+    },
+    "download_folders": "./roms/gba/",
+    "ignore": {
+      "size": "-",
+      "name_contains": "Parent"
+    },
+    "regions": {
+      "USA": [
+        "(USA)",
+        "(U)",
+        "US"
+      ],
+      "Europe": [
+        "(Europe)",
+        "(E)",
+        "EU"
+      ],
+      "Japan": [
+        "(Japan)",
+        "(J)",
+        "JP"
+      ],
+      "World": [
+        "(World)",
+        "(W)"
+      ]
+    }
+  }
+}

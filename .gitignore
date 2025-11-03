@@ -1,0 +1,9 @@
+# VS Code settings
+.vscode/
+
+# Python virtual environment
+venv/
+
+# ROMs and cache
+roms/
+rom_cache.json
