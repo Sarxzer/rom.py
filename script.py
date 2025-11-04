@@ -126,22 +126,59 @@ def compute_config_hash(cfg):
 
 
 def categorize_by_region(games, region_config):
+    # If no region rules provided, place all games into "Unknown"
     if not region_config:
-        return {"Unknown": games}
+        return {"Unknown": list(games)}
 
+    # Prepare buckets for each defined region and a fallback "Unknown"
     categorized = {region: [] for region in region_config.keys()}
     categorized["Unknown"] = []
 
     for g in games:
-        name = g["name"]
-        matched = False
+        name = g.get("name", "")
+        matched_any = False
+        # Allow a game to belong to multiple regions: append to every matching region
         for region, patterns in region_config.items():
-            if any(pat.lower() in name.lower() for pat in patterns):
-                categorized[region].append(g)
-                matched = True
-                break
-        if not matched:
+            if not patterns:
+                continue
+            for pat in patterns:
+                if not pat:
+                    continue
+                if pat.lower() in name.lower():
+                    # ensure we add the game once per region
+                    if g not in categorized[region]:
+                        categorized[region].append(g)
+                    matched_any = True
+                    break
+        if not matched_any:
             categorized["Unknown"].append(g)
+    return categorized
+
+def categorize_by_type(games, type_config):
+    # If no type rules provided, put all games into "None"
+    if not type_config:
+        return {"None": list(games)}
+
+    categorized = {type_: [] for type_ in type_config.keys()}
+    categorized["None"] = []
+
+    for g in games:
+        name = g.get("name", "")
+        matched_any = False
+        # Allow a game to belong to multiple types: append to every matching type
+        for type_, patterns in type_config.items():
+            if not patterns:
+                continue
+            for pat in patterns:
+                if not pat:
+                    continue
+                if pat.lower() in name.lower():
+                    if g not in categorized[type_]:
+                        categorized[type_].append(g)
+                    matched_any = True
+                    break
+        if not matched_any:
+            categorized["None"].append(g)
     return categorized
 
 
@@ -197,6 +234,11 @@ def scrape_games(base_url, config):
     categorized = categorize_by_region(games, config.get("regions"))
     for region, lst in categorized.items():
         print(f"  🌎 {region}: {len(lst)} games")
+
+    # NEW: categorize by type (only for display)
+    categorized_types = categorize_by_type(games, config.get("types"))
+    for type_, lst in categorized_types.items():
+        print(f"  🎮 {type_}: {len(lst)} games")
 
     # Return the flat list expected by the curses UI
     return games
@@ -714,9 +756,12 @@ def curses_main(stdscr, systems, cache):
 
     # selection/state
     game_idx = 0              # index into flat list when not grouped
-    grouped = False           # toggle grouping by region
-    region_idx = 0            # which region is shown when grouped
+    # grouping: None / 'region' / 'type'
+    group_mode = None
+    region_idx = 0            # which region is shown when grouped by region
     region_game_idx = 0       # index into current region list
+    type_idx = 0              # which type is shown when grouped by type
+    type_game_idx = 0         # index into current type list
 
     # search state
     search_query = None  # lowercase query or None
@@ -738,7 +783,7 @@ def curses_main(stdscr, systems, cache):
             stdscr.addstr(0, 2, f"{current_sys} — {len(games)} games")
 
         # Instructions (include grouping keys)
-        instr_text = "↑↓ scroll | ←→ system | ENTER open/download | r toggle regions | TAB switch region | f search | i info | q quit"
+        instr_text = "↑↓ scroll | ←→ system | ENTER open/download | r toggle regions | t toggle types | TAB switch region | f search | i info | q quit"
         try:
             addstr_scroll(stdscr, 1, 2, instr_text, INSTR_ATTR if INSTR_ATTR is not None else curses.A_NORMAL)
         except Exception:
@@ -754,14 +799,22 @@ def curses_main(stdscr, systems, cache):
                 stdscr.addstr(0, w - 40, f"[id:{sys_id}] {os.path.basename(dfolders[0])}"[:38])
 
         # compute the base list depending on grouping & region
-        if not grouped:
+        if group_mode is None:
             base_list = games
-        else:
+        elif group_mode == 'region':
             categorized = categorize_by_region(games, systems[current_sys].get("regions"))
             region_names = list(categorized.keys()) or ["Unknown"]
-            region_idx = region_idx % len(region_names)
+            region_idx = region_idx % len(region_names) if region_names else 0
             cur_region = region_names[region_idx]
             base_list = categorized.get(cur_region, [])
+        elif group_mode == 'type':
+            categorized = categorize_by_type(games, systems[current_sys].get("types"))
+            type_names = list(categorized.keys()) or ["None"]
+            type_idx = type_idx % len(type_names) if type_names else 0
+            cur_type = type_names[type_idx]
+            base_list = categorized.get(cur_type, [])
+        else:
+            base_list = games
 
         # apply search filter if active
         if search_query:
@@ -774,40 +827,47 @@ def curses_main(stdscr, systems, cache):
             stdscr.addstr(2, 2, f"Search: '{search_query}' — {len(display_list)} results")
             list_start_row = 3
         else:
-            if not grouped:
+            if group_mode is None:
                 stdscr.addstr(2, 2, "Listing: All games")
                 list_start_row = 3
-            else:
+            elif group_mode == 'region':
                 stdscr.addstr(2, 2, f"Grouped by region: {cur_region} — {len(display_list)} games")
                 list_start_row = 4
+            elif group_mode == 'type':
+                stdscr.addstr(2, 2, f"Grouped by type: {cur_type} — {len(display_list)} games")
+                list_start_row = 4
+            else:
+                stdscr.addstr(2, 2, "Listing: All games")
+                list_start_row = 3
 
-        # determine start index and visible slice
-        if not grouped:
-            start = game_idx
+        # determine start index (viewport) and visible slice
+        # keep a viewport so the selected item is centered when possible
+        if group_mode is None:
+            selected_index = game_idx
+        elif group_mode == 'region':
+            selected_index = region_game_idx
+        elif group_mode == 'type':
+            selected_index = type_game_idx
         else:
-            start = region_game_idx
+            selected_index = game_idx
 
-        # compute the currently selected item's stable key (used for scrolling state)
-        cur_sel_idx = (game_idx if not grouped else region_game_idx)
-        cur_sel_key = None
-        if 0 <= cur_sel_idx < len(display_list):
-            cur_item = display_list[cur_sel_idx]
-            # use a stable unique key: (system name, item url)
-            cur_sel_key = (current_sys, cur_item.get('url'))
-        # if selection changed, reset previous scroll state so it restarts when reselected
-        if cur_sel_key != prev_selected_key:
-            try:
-                if prev_selected_key in SCROLL_STATES:
-                    SCROLL_STATES.pop(prev_selected_key, None)
-            except Exception:
-                pass
-            prev_selected_key = cur_sel_key
+        visible_h = max(1, h - list_start_row - 1)
+        # center the selection in the viewport when possible
+        start = max(0, selected_index - (visible_h // 2))
+        # make sure start doesn't run past the end
+        if len(display_list) > visible_h:
+            start = min(start, len(display_list) - visible_h)
+        else:
+            start = 0
 
         visible = display_list[start:start + (h - list_start_row - 1)]
 
         # render list (with selection highlight)
         # determine selected visible index
-        sel_vis = (game_idx if not grouped else region_game_idx) - start
+        # use the active index depending on grouping (none / region / type)
+        cur_index = (game_idx if group_mode is None else
+                     (region_game_idx if group_mode == 'region' else type_game_idx))
+        sel_vis = cur_index - start
         for i, game in enumerate(visible):
             row = list_start_row + i
             is_sel = (i == sel_vis)
@@ -822,8 +882,9 @@ def curses_main(stdscr, systems, cache):
                     addstr_scroll(stdscr, row, 5, name, SELECTED_ATTR if SELECTED_ATTR is not None else curses.A_NORMAL, key=item_key, max_width=w-20)
                     stdscr.addstr(row, w - 12, size.rjust(10), SIZE_ATTR if SIZE_ATTR is not None else curses.A_NORMAL)
                 else:
-                    # non-selected lines show truncated name; keep their scroll state tied to item as well
+                    # non-selected lines: reset any scroll state for this item so it restarts when re-selected
                     item_key = (current_sys, game.get('url'))
+                    SCROLL_STATES.pop(item_key, None)
                     truncated = name[:max(10, w - 20)]
                     stdscr.addstr(row, 2, prefix + truncated, NORMAL_ATTR if NORMAL_ATTR is not None else curses.A_NORMAL)
                     stdscr.addstr(row, w - 12, size.rjust(10), SIZE_ATTR if SIZE_ATTR is not None else curses.A_NORMAL)
@@ -834,16 +895,22 @@ def curses_main(stdscr, systems, cache):
                     pass
 
         # footer for regions when grouped (and no active global search override)
-        if grouped:
+        if group_mode == 'region':
             regs_line = " | ".join((f"[{r}]" if idx == region_idx else r) for idx, r in enumerate(region_names))
             try:
                 stdscr.addstr(h - 1, 2, regs_line[:w - 4], INFO_ATTR if INFO_ATTR is not None else curses.A_NORMAL)
             except Exception:
                 stdscr.addstr(h - 1, 2, regs_line[:w - 4])
+        elif group_mode == 'type':
+            types_line = " | ".join((f"[{t}]" if idx == type_idx else t) for idx, t in enumerate(type_names))
+            try:
+                stdscr.addstr(h - 1, 2, types_line[:w - 4], INFO_ATTR if INFO_ATTR is not None else curses.A_NORMAL)
+            except Exception:
+                stdscr.addstr(h - 1, 2, types_line[:w - 4])
 
         key = stdscr.getch()
         if key == ord('D'):  # Download selected game
-            idx = game_idx if not grouped else region_game_idx
+            idx = game_idx if group_mode is None else region_game_idx
             selected = display_list[idx] if 0 <= idx < len(display_list) else None
             if selected:
                 sys_folders = get_download_folders_for_system(current_sys, systems)
@@ -894,18 +961,44 @@ def curses_main(stdscr, systems, cache):
         if key == ord('q'):
             break
         elif key == ord('r'):
-            # toggle grouping, reset indices and clear search
-            grouped = not grouped
+            # toggle region grouping
+            if group_mode == 'region':
+                group_mode = None
+            else:
+                group_mode = 'region'
             game_idx = 0
             region_idx = 0
             region_game_idx = 0
+            # reset type indices as well
+            type_idx = 0
+            type_game_idx = 0
             search_query = None
-        elif key == 9:  # TAB -> cycle region when grouped
-            if grouped:
+        elif key == ord('t'):
+            # toggle type grouping
+            if group_mode == 'type':
+                group_mode = None
+            else:
+                group_mode = 'type'
+            game_idx = 0
+            type_idx = 0
+            type_game_idx = 0
+            # reset region indices as well
+            region_idx = 0
+            region_game_idx = 0
+            search_query = None
+        elif key == 9:  # TAB -> cycle region/type when grouped
+            if group_mode == 'region':
                 categorized = categorize_by_region(games, systems[current_sys].get("regions"))
                 region_names = list(categorized.keys()) or ["Unknown"]
-                region_idx = (region_idx + 1) % len(region_names)
-                region_game_idx = 0
+                if region_names:
+                    region_idx = (region_idx + 1) % len(region_names)
+                    region_game_idx = 0
+            elif group_mode == 'type':
+                categorized = categorize_by_type(games, systems[current_sys].get("types"))
+                type_names = list(categorized.keys()) or ["None"]
+                if type_names:
+                    type_idx = (type_idx + 1) % len(type_names)
+                    type_game_idx = 0
         elif key == ord('f'):  # search (keyword)
             # prompt
             curses.echo()
@@ -1003,32 +1096,41 @@ def curses_main(stdscr, systems, cache):
                     systems[current_sys]["download_folders"] = [p.strip() for p in inp.split(",") if p.strip()]
             save_config(systems)
         elif key == curses.KEY_DOWN:
-            if not grouped:
+            if group_mode is None:
                 if game_idx < max(0, len(display_list) - 1):
                     game_idx += 1
-            else:
+            elif group_mode == 'region':
                 if region_game_idx < max(0, len(display_list) - 1):
                     region_game_idx += 1
+            elif group_mode == 'type':
+                if type_game_idx < max(0, len(display_list) - 1):
+                    type_game_idx += 1
         elif key == curses.KEY_UP:
-            if not grouped and game_idx > 0:
+            if group_mode is None and game_idx > 0:
                 game_idx -= 1
-            elif grouped and region_game_idx > 0:
+            elif group_mode == 'region' and region_game_idx > 0:
                 region_game_idx -= 1
+            elif group_mode == 'type' and type_game_idx > 0:
+                type_game_idx -= 1
         elif key == curses.KEY_RIGHT:
             system_idx = (system_idx + 1) % len(system_names)
             game_idx = 0
             region_idx = 0
             region_game_idx = 0
+            type_idx = 0
+            type_game_idx = 0
             search_query = None
         elif key == curses.KEY_LEFT:
             system_idx = (system_idx - 1) % len(system_names)
             game_idx = 0
             region_idx = 0
             region_game_idx = 0
+            type_idx = 0
+            type_game_idx = 0
             search_query = None
         elif key in [10, 13]:  # ENTER key -> confirm & download
-            # pick from the currently displayed filtered list
-            idx = game_idx if not grouped else region_game_idx
+            # pick from the currently displayed filtered list (use active index)
+            idx = cur_index
             selected = display_list[idx] if 0 <= idx < len(display_list) else None
 
             if selected:
@@ -1164,11 +1266,14 @@ def main():
 
     if current_cfg_hash != cached_cfg_hash:
         # config changed -> re-scrape all systems to refresh index
+        temp_cache = {}
         for sys_name, info in config.items():
             try:
-                cache[sys_name] = scrape_games(info["base_url"], info)
+                for url in info.get("urls", []):
+                    temp_cache[sys_name] = temp_cache.get(sys_name, []) + scrape_games(url, info)
             except Exception:
-                cache[sys_name] = []
+                pass
+        cache = temp_cache
         # update meta and save
         cache["_meta"] = {"config_hash": current_cfg_hash, "updated": int(time.time())}
         save_cache(cache)
@@ -1176,8 +1281,16 @@ def main():
         # config unchanged -> only scrape missing/empty systems (faster)
         for sys_name, info in config.items():
             if sys_name not in cache or not cache.get(sys_name):
-                cache[sys_name] = scrape_games(info["base_url"], info)
-                save_cache(cache)
+                urls = info.get("urls") or ([info.get("base_url")] if info.get("base_url") else [])
+                combined = []
+                for url in urls:
+                    try:
+                        combined.extend(scrape_games(url, info))
+                    except Exception:
+                        # ignore individual URL failures
+                        pass
+                cache[sys_name] = combined
+        save_cache(cache)
 
     curses.wrapper(curses_main, config, cache)
 

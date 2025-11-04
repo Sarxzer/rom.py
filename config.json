@@ -1,7 +1,10 @@
 {
   "Nintendo Gameboy": {
     "id": "gb",
-    "base_url": "https://myrient.erista.me/files/No-Intro/Nintendo%20-%20Game%20Boy/",
+    "urls": [
+      "https://myrient.erista.me/files/No-Intro/Nintendo%20-%20Game%20Boy/",
+      "https://myrient.erista.me/files/No-Intro/Nintendo%20-%20Game%20Boy%20%28Aftermarket%29/"
+    ],
     "entries": "tbody tr",
     "fields": {
       "name": "td.link a",
@@ -33,11 +36,113 @@
         "(World)",
         "(W)"
       ]
+    },
+    "types": {
+      "Demo": [
+        "(Demo)",
+        "Demo"
+      ],
+      "Beta": [
+        "(Beta)",
+        "Beta"
+      ],
+      "Hack": [
+        "(Hack)",
+        "Hack"
+      ],
+      "Translation": [
+        "(Translation)",
+        "Translation"
+      ],
+      "Unlicensed": [
+        "(Unl)",
+        "Unlicensed"
+      ],
+      "Homebrew": [
+        "(Homebrew)",
+        "Homebrew"
+      ],
+      "Aftermarket": [
+        "(Aftermarket)",
+        "Aftermarket"
+      ]
+    }
+  },
+  "Nintendo Gameboy Color": {
+    "id": "gbc",
+    "urls": [
+      "https://myrient.erista.me/files/No-Intro/Nintendo%20-%20Game%20Boy%20Color/",
+      "https://myrient.erista.me/files/No-Intro/Nintendo%20-%20Game%20Boy%20Color%20%28Aftermarket%29/"
+    ],
+    "entries": "tbody tr",
+    "fields": {
+      "name": "td.link a",
+      "url": "td.link a",
+      "size": "td.size"
+    },
+    "download_folders": "./roms/gbc/",
+    "ignore": {
+      "size": "-",
+      "name_contains": "Parent"
+    },
+    "regions": {
+      "USA": [
+        "(USA)",
+        "(U)",
+        "US"
+      ],
+      "Europe": [
+        "(Europe)",
+        "(E)",
+        "EU"
+      ],
+      "Japan": [
+        "(Japan)",
+        "(J)",
+        "JP"
+      ],
+      "World": [
+        "(World)",
+        "(W)"
+      ]
+    },
+    "types": {
+      "Demo": [
+        "(Demo)",
+        "Demo"
+      ],
+      "Beta": [
+        "(Beta)",
+        "Beta"
+      ],
+      "Hack": [
+        "(Hack)",
+        "Hack"
+      ],
+      "Translation": [
+        "(Translation)",
+        "Translation"
+      ],
+      "Unlicensed": [
+        "(Unl)",
+        "Unlicensed"
+      ],
+      "Homebrew": [
+        "(Homebrew)",
+        "Homebrew"
+      ],
+      "Aftermarket": [
+        "(Aftermarket)",
+        "Aftermarket"
+      ]
     }
   },
   "Nintendo Gameboy Advance": {
     "id": "gba",
-    "base_url": "https://myrient.erista.me/files/No-Intro/Nintendo%20-%20Game%20Boy%20Advance/",
+    "urls": [
+      "https://myrient.erista.me/files/No-Intro/Nintendo%20-%20Game%20Boy%20Advance/",
+      "https://myrient.erista.me/files/No-Intro/Nintendo%20-%20Game%20Boy%20Advance%20%28Aftermarket%29/"
+    ],
     "entries": "tbody tr",
     "fields": {
       "name": "td.link a",
@@ -68,6 +173,174 @@
       "World": [
         "(World)",
         "(W)"
+      ]
+    },
+    "types": {
+      "Demo": [
+        "(Demo)",
+        "Demo"
+      ],
+      "Beta": [
+        "(Beta)",
+        "Beta"
+      ],
+      "Hack": [
+        "(Hack)",
+        "Hack"
+      ],
+      "Translation": [
+        "(Translation)",
+        "Translation"
+      ],
+      "Unlicensed": [
+        "(Unl)",
+        "Unlicensed"
+      ],
+      "Homebrew": [
+        "(Homebrew)",
+        "Homebrew"
+      ],
+      "Aftermarket": [
+        "(Aftermarket)",
+        "Aftermarket"
+      ]
+    }
+  },
+  "Nintendo Entertainment System": {
+    "id": "nes",
+    "urls": [
+      "https://myrient.erista.me/files/No-Intro/Nintendo%20-%20Nintendo%20Entertainment%20System%20(Headerless)/",
+      "https://myrient.erista.me/files/No-Intro/Nintendo%20-%20Nintendo%20Entertainment%20System%20%28Headerless%29%20%28Aftermarket%29/"
+    ],
+    "entries": "tbody tr",
+    "fields": {
+      "name": "td.link a",
+      "url": "td.link a",
+      "size": "td.size"
+    },
+    "download_folders": "./roms/nes/",
+    "ignore": {
+      "size": "-",
+      "name_contains": "Parent"
+    },
+    "regions": {
+      "USA": [
+        "(USA)",
+        "(U)",
+        "US"
+      ],
+      "Europe": [
+        "(Europe)",
+        "(E)",
+        "EU"
+      ],
+      "Japan": [
+        "(Japan)",
+        "(J)",
+        "JP"
+      ],
+      "World": [
+        "(World)",
+        "(W)"
+      ]
+    },
+    "types": {
+      "Demo": [
+        "(Demo)",
+        "Demo"
+      ],
+      "Beta": [
+        "(Beta)",
+        "Beta"
+      ],
+      "Hack": [
+        "(Hack)",
+        "Hack"
+      ],
+      "Translation": [
+        "(Translation)",
+        "Translation"
+      ],
+      "Unlicensed": [
+        "(Unl)",
+        "Unlicensed"
+      ],
+      "Homebrew": [
+        "(Homebrew)",
+        "Homebrew"
+      ],
+      "Aftermarket": [
+        "(Aftermarket)",
+        "Aftermarket"
+      ]
+    }
+  },
+  "Super Nintendo Entertainment System": {
+    "id": "snes",
+    "urls": [
+      "https://myrient.erista.me/files/No-Intro/Nintendo%20-%20Super%20Nintendo%20Entertainment%20System/",
+      "https://myrient.erista.me/files/No-Intro/Nintendo%20-%20Super%20Nintendo%20Entertainment%20System%20%28Aftermarket%29/"
+    ],
+    "entries": "tbody tr",
+    "fields": {
+      "name": "td.link a",
+      "url": "td.link a",
+      "size": "td.size"
+    },
+    "download_folders": "./roms/snes/",
+    "ignore": {
+      "size": "-",
+      "name_contains": "Parent"
+    },
+    "regions": {
+      "USA": [
+        "(USA)",
+        "(U)",
+        "US"
+      ],
+      "Europe": [
+        "(Europe)",
+        "(E)",
+        "EU"
+      ],
+      "Japan": [
+        "(Japan)",
+        "(J)",
+        "JP"
+      ],
+      "World": [
+        "(World)",
+        "(W)"
+      ]
+    },
+    "types": {
+      "Demo": [
+        "(Demo)",
+        "Demo"
+      ],
+      "Beta": [
+        "(Beta)",
+        "Beta"
+      ],
+      "Hack": [
+        "(Hack)",
+        "Hack"
+      ],
+      "Translation": [
+        "(Translation)",
+        "Translation"
+      ],
+      "Unlicensed": [
+        "(Unl)",
+        "Unlicensed"
+      ],
+      "Homebrew": [
+        "(Homebrew)",
+        "Homebrew"
+      ],
+      "Aftermarket": [
+        "(Aftermarket)",
+        "Aftermarket"
       ]
     }
   }
