@@ -6,6 +6,7 @@ import re
 import sys
 import importlib
 import subprocess
+import hashlib
 
 # helper: ensure a python package is importable, install via pip if missing
 def ensure_package(module_name, pip_name=None):
@@ -105,6 +106,23 @@ def save_cache(cache):
 def save_config(cfg):
     with open(CONFIG_FILE, "w", encoding="utf-8") as f:
         json.dump(cfg, f, indent=2)
+
+
+def compute_config_hash(cfg):
+    """
+    Compute a stable SHA256 hash of the config dict.
+    Falls back to hashing the raw file bytes if json dump fails.
+    """
+    try:
+        s = json.dumps(cfg, sort_keys=True, separators=(',', ':'), ensure_ascii=False)
+        return hashlib.sha256(s.encode('utf-8')).hexdigest()
+    except Exception:
+        try:
+            with open(CONFIG_FILE, 'rb') as f:
+                data = f.read()
+            return hashlib.sha256(data).hexdigest()
+        except Exception:
+            return ''
 
 
 def categorize_by_region(games, region_config):
@@ -1128,8 +1146,15 @@ def main():
     config = load_config()
     cache = load_cache()
 
+    # compute config hash and compare with cached hash to detect config changes
+    current_cfg_hash = compute_config_hash(config)
+    cached_meta = cache.get("_meta") or {}
+    cached_cfg_hash = cached_meta.get("config_hash")
+
     # Normalize any old cached categorized dicts into flat lists
     for k, v in list(cache.items()):
+        if k == "_meta":
+            continue
         if isinstance(v, dict):
             flat = []
             for sub in v.values():
@@ -1137,11 +1162,22 @@ def main():
                     flat.extend(sub)
             cache[k] = flat
 
-    # Scrape missing systems
-    for sys_name, info in config.items():
-        if sys_name not in cache or not cache.get(sys_name):
-            cache[sys_name] = scrape_games(info["base_url"], info)
-            save_cache(cache)
+    if current_cfg_hash != cached_cfg_hash:
+        # config changed -> re-scrape all systems to refresh index
+        for sys_name, info in config.items():
+            try:
+                cache[sys_name] = scrape_games(info["base_url"], info)
+            except Exception:
+                cache[sys_name] = []
+        # update meta and save
+        cache["_meta"] = {"config_hash": current_cfg_hash, "updated": int(time.time())}
+        save_cache(cache)
+    else:
+        # config unchanged -> only scrape missing/empty systems (faster)
+        for sys_name, info in config.items():
+            if sys_name not in cache or not cache.get(sys_name):
+                cache[sys_name] = scrape_games(info["base_url"], info)
+                save_cache(cache)
 
     curses.wrapper(curses_main, config, cache)
 
