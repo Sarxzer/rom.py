@@ -7,3 +7,7 @@ venv/
 # ROMs and cache
 roms/
 rom_cache.json
+
+# Any .zip or .7z files
+*.zip
+*.7z
