@@ -52,7 +52,6 @@ if IS_WINDOWS:
 import curses
 from bs4 import BeautifulSoup
 import time
-import subprocess
 import shutil
 
 CACHE_FILE = "rom_cache.json"
@@ -139,14 +138,14 @@ def load_config():
         with open(CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump(sample, f, indent=2)
         print("Created sample config.json — edit it before running again!")
-        exit()
+        print("Created sample config.json — edit it before running again!")
+        sys.exit()
     with open(CONFIG_FILE, "r", encoding="utf-8") as f:
         config = json.load(f)
         if config.get("version") != CONFIG_VERSION:
             print(f"Config version mismatch: {config.get('version')} != {CONFIG_VERSION}")
-            exit()
+            sys.exit()
         return config
-
 # ------------------------------
 # Load or scrape games
 # ------------------------------
@@ -1313,6 +1312,8 @@ def set_input_blocking(stdscr, blocking=True):
     """
     When blocking=True -> set getch/getstr to block (timeout = -1).
     When blocking=False -> set to DEFAULT_TIMEOUT_MS so UI keeps updating.
+
+    If an exception occurs while setting the timeout, it is silently ignored and no error is raised.
     """
     try:
         if blocking:
