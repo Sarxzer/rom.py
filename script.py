@@ -419,13 +419,34 @@ def sizeof_fmt(num, suffix='B'):
 
 
 # UI globals (initialized when curses session starts)
-ICON_GAME = '🎮 '
-ICON_ARROW = '➡️ '
-ICON_FOLDER = '📁 '
-ICON_SEARCH = '🔎 '
-ICON_DL = '⬇️ '
-ICON_OK = '✅ '
-ICON_ERR = '❌ '
+ICON_GAME = '🎮'
+# ICON_ARROW = '➡️'
+ICON_ARROW = '→'        # simpler arrow for better alignment on different terminals
+ICON_FOLDER = '📁'
+ICON_SEARCH = '🔎'
+# ICON_DL = '⬇️'
+ICON_DL = '↓'           # simpler down arrow for better alignment on different terminals
+ICON_OK = '✅'
+ICON_ERR = '❌'
+
+# emojis = [ICON_GAME, ICON_ARROW, ICON_FOLDER, ICON_SEARCH, ICON_DL, ICON_OK, ICON_ERR] 
+
+# aligned_emojis = []
+
+# fudge = {
+#     "➡️": 1,
+#     "⬇️": 2
+# }
+
+# max_width = max(wcswidth(e) + fudge.get(e, 0) for e in emojis)
+
+# for e in emojis:
+#     width = wcswidth(e) + fudge.get(e, 0)
+#     padding = max_width - width
+#     print(e + " " * padding + " | aligned!")
+
+# for e in aligned_emojis:
+#     print(e + " | aligned!")
 
 HEADER_ATTR = None
 INSTR_ATTR = None
