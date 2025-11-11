@@ -1,18 +1,120 @@
-# VS Code settings
+# General
+.DS_Store
+Thumbs.db
+desktop.ini
+*.log
+*.tmp
+*~
+.idea/
 .vscode/
 
-# Python virtual environment
-venv/
+# OS-specific
+ehthumbs.db
+Icon?
+._*
+.Spotlight-V100
+.Trashes
 
-# ROMs and cache
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.python-version
+pip-log.txt
+pip-delete-this-directory.txt
+pip-wheel-metadata/
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+.pytest_cache/
+build/
+dist/
+*.egg
+*.egg-info/
+.eggs/
+wheelhouse/
+
+# Virtualenvs
+venv/
+.venv/
+.env/
+.env.* 
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Packaging
+*.whl
+*.tar.gz
+
+# C extensions / compiled artifacts
+*.so
+*.dylib
+*.dll
+
+# IDE/editor
+.vscode/
+.vscode-test/
+.idea/
+*.sublime-workspace
+*.sublime-project
+*.iml
+*.classpath
+*.project
+*.settings/
+
+# Misc caches and databases
+*.sqlite
+*.db
+*.db-journal
+.cache/
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Archives, ROMs, releases (already in repo)
 roms/
 rom_cache.json
-
-# Any .zip or .7z files
-*.zip
-*.7z
-
-# Releases
-releases/
 release.py
 release.json
+releases/
+*.zip
+*.7z
+*.rar
+
+# Secrets / credentials
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+*.crt
+*.p12
+*.asc
+secrets.json
+*.secret
+netrc
+
+# Test/reporting
+coverage.xml
+junit*.xml
+test-reports/
+
+# Editors' temporary files
+*.swp
+*.swo
+*.bak
+*.orig
+
+# Optional: lockfiles you don't want in origin
+Pipfile.lock
+poetry.lock
+
+# Allow exceptions:
+# If you need to keep a specific file tracked, add it explicitly with:
+# git add -f path/to/file
