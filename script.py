@@ -54,6 +54,30 @@ from bs4 import BeautifulSoup
 import time
 import shutil
 
+# helper functions for downloading
+def ensure_dir(path):
+    """
+    Ensure the given directory path exists (create if missing).
+    """
+    try:
+        os.makedirs(path, exist_ok=True)
+    except Exception:
+        pass
+
+
+def sizeof_fmt(num, suffix='B'):
+    """
+    Format a file size (in bytes) into a human-readable string.
+    """
+    if num is None:
+        return 'Unknown'
+    num = float(num)
+    for unit in ['','K','M','G','T','P']:
+        if abs(num) < 1024.0:
+            return f"{num:3.1f}{unit}{suffix}"
+        num /= 1024.0
+    return f"{num:.1f}P{suffix}"
+
 CACHE_FILE = "rom_cache.json"
 CONFIG_FILE = "config.json"
 CONFIG_VERSION = 3
@@ -153,17 +177,28 @@ def load_config():
 # Load or scrape games
 # ------------------------------
 def load_cache():
+    """
+    Load the cache from CACHE_FILE if it exists.
+    """
     if os.path.exists(CACHE_FILE):
         with open(CACHE_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     return {}
 
 def save_cache(cache):
+    """
+    Save the cache dict back to CACHE_FILE.
+    """
+    ensure_dir(os.path.dirname(CACHE_FILE))
     with open(CACHE_FILE, "w", encoding="utf-8") as f:
         json.dump(cache, f, indent=2)
 
 # save the config (called when UI edits folders)
 def save_config(cfg):
+    """
+    Save the config dict back to CONFIG_FILE.
+    """
+    ensure_dir(os.path.dirname(CONFIG_FILE))
     with open(CONFIG_FILE, "w", encoding="utf-8") as f:
         json.dump(cfg, f, indent=2)
 
@@ -185,64 +220,62 @@ def compute_config_hash(cfg):
             return ''
 
 
-def categorize_by_region(games, region_config):
-    # If no region rules provided, place all games into "Unknown"
-    if not region_config:
-        return {"Unknown": list(games)}
+def categorize_games(games, category_config, default_category="Unknown"):
+    """
+    Categorize games by matching patterns in their names.
+    
+    Args:
+        games: List of game dictionaries with 'name' keys
+        category_config: Dict mapping category names to lists of pattern strings
+        default_category: Name of the category for games that don't match any pattern
+    
+    Returns:
+        Dict mapping category names to lists of games
+    """
+    if not category_config:
+        return {default_category: list(games)}
 
-    # Prepare buckets for each defined region and a fallback "Unknown"
-    categorized = {region: [] for region in region_config.keys()}
-    categorized["Unknown"] = []
+    # Prepare buckets for each defined category and a fallback
+    categorized = {category: [] for category in category_config.keys()}
+    categorized[default_category] = []
 
     for g in games:
         name = g.get("name", "")
         matched_any = False
-        # Allow a game to belong to multiple regions: append to every matching region
-        for region, patterns in region_config.items():
+        # Allow a game to belong to multiple categories: append to every matching category
+        for category, patterns in category_config.items():
             if not patterns:
                 continue
             for pat in patterns:
                 if not pat:
                     continue
                 if pat.lower() in name.lower():
-                    # ensure we add the game once per region
-                    if g not in categorized[region]:
-                        categorized[region].append(g)
+                    # ensure we add the game once per category
+                    if g not in categorized[category]:
+                        categorized[category].append(g)
                     matched_any = True
                     break
         if not matched_any:
-            categorized["Unknown"].append(g)
+            categorized[default_category].append(g)
     return categorized
+
+def categorize_by_region(games, region_config):
+    """
+    Categorize games by their region using the provided region_config.
+    """
+    return categorize_games(games, region_config, default_category="Unknown")
 
 def categorize_by_type(games, type_config):
-    # If no type rules provided, put all games into "None"
-    if not type_config:
-        return {"None": list(games)}
-
-    categorized = {type_: [] for type_ in type_config.keys()}
-    categorized["None"] = []
-
-    for g in games:
-        name = g.get("name", "")
-        matched_any = False
-        # Allow a game to belong to multiple types: append to every matching type
-        for type_, patterns in type_config.items():
-            if not patterns:
-                continue
-            for pat in patterns:
-                if not pat:
-                    continue
-                if pat.lower() in name.lower():
-                    if g not in categorized[type_]:
-                        categorized[type_].append(g)
-                    matched_any = True
-                    break
-        if not matched_any:
-            categorized["None"].append(g)
-    return categorized
+    """
+    Categorize games by their type using the provided type_config.
+    """
+    return categorize_games(games, type_config, default_category="None")
 
 
 def scrape_games(base_url, config):
+    """
+    Scrape games from the given base_url using the provided config dict.
+    """
     print(f"Scraping games from {base_url} ...")
     try:
         resp = urllib.request.urlopen(base_url)
@@ -355,7 +388,9 @@ def normalize_download_folders(folders):
 
 # helper to produce a pretty filename from url or name
 def sanitize_filename_from_url_or_name(url, name=None):
-    # try to extract basename from url (unquote percent-encoding)
+    """
+    Sanitize a filename by removing unwanted characters and ensuring a valid format.
+    """
     try:
         path = urllib.parse.unquote(url.split('?')[0])
         base = os.path.basename(path)
@@ -399,33 +434,36 @@ def get_download_folders_for_system(system_name, systems):
         return normalize_download_folders(systems.get("download_folder"))
     return []
 
-# helper functions for downloading
-def ensure_dir(path):
-    try:
-        os.makedirs(path, exist_ok=True)
-    except Exception:
-        pass
-
-
-def sizeof_fmt(num, suffix='B'):
-    if num is None:
-        return 'Unknown'
-    num = float(num)
-    for unit in ['','K','M','G','T','P']:
-        if abs(num) < 1024.0:
-            return f"{num:3.1f}{unit}{suffix}"
-        num /= 1024.0
-    return f"{num:.1f}P{suffix}"
-
 
 # UI globals (initialized when curses session starts)
-ICON_GAME = '🎮 '
-ICON_ARROW = '➡️ '
-ICON_FOLDER = '📁 '
-ICON_SEARCH = '🔎 '
-ICON_DL = '⬇️ '
-ICON_OK = '✅ '
-ICON_ERR = '❌ '
+ICON_GAME = '🎮'
+# ICON_ARROW = '➡️'
+ICON_ARROW = '→'        # simpler arrow for better alignment on different terminals
+ICON_FOLDER = '📁'
+ICON_SEARCH = '🔎'
+# ICON_DL = '⬇️'
+ICON_DL = '↓'           # simpler down arrow for better alignment on different terminals
+ICON_OK = '✅'
+ICON_ERR = '❌'
+
+# emojis = [ICON_GAME, ICON_ARROW, ICON_FOLDER, ICON_SEARCH, ICON_DL, ICON_OK, ICON_ERR] 
+
+# aligned_emojis = []
+
+# fudge = {
+#     "➡️": 1,
+#     "⬇️": 2
+# }
+
+# max_width = max(wcswidth(e) + fudge.get(e, 0) for e in emojis)
+
+# for e in emojis:
+#     width = wcswidth(e) + fudge.get(e, 0)
+#     padding = max_width - width
+#     print(e + " " * padding + " | aligned!")
+
+# for e in aligned_emojis:
+#     print(e + " | aligned!")
 
 HEADER_ATTR = None
 INSTR_ATTR = None
@@ -434,6 +472,22 @@ NORMAL_ATTR = None
 SIZE_ATTR = None
 INFO_ATTR = None
 ERR_ATTR = None
+
+
+def get_attr(attr, fallback=None):
+    """
+    Helper to return a curses attribute with fallback.
+    
+    Args:
+        attr: The attribute to use (may be None)
+        fallback: The fallback attribute if attr is None (defaults to curses.A_NORMAL)
+    
+    Returns:
+        The attribute to use
+    """
+    if attr is not None:
+        return attr
+    return fallback if fallback is not None else curses.A_NORMAL
 
 
 def init_ui_colors(stdscr):
@@ -572,6 +626,101 @@ def addstr_scroll(stdscr, y, x, text, attr=None, key=None, speed=6, gap=4, max_w
 
 
 
+def draw_download_progress(stdscr, w, name, dest_path, total, downloaded, elapsed, start, title_prefix=""):
+    """
+    Draw download progress UI with stats and progress bar.
+    
+    Args:
+        stdscr: curses screen object
+        w: window width
+        name: name of the file being downloaded
+        dest_path: destination path
+        total: total size in bytes (may be None)
+        downloaded: bytes downloaded so far
+        elapsed: elapsed time in seconds
+        start: start time for computing the progress bar animation
+        title_prefix: optional prefix for the title (e.g., "with wget")
+    """
+    try:
+        speed = downloaded / elapsed if elapsed > 0 else 0
+        percent = (downloaded / total * 100) if total else 0
+        eta = int((total - downloaded) / speed) if total and speed > 0 else 0
+
+        stdscr.clear()
+        title = f"{ICON_DL} Downloading{title_prefix}: {name}"
+        stdscr.addstr(0, 2, title, get_attr(HEADER_ATTR, curses.A_BOLD))
+        stdscr.addstr(1, 2, f"To: {dest_path}", get_attr(INFO_ATTR))
+        stdscr.addstr(2, 2, f"Size: {sizeof_fmt(total)}", get_attr(SIZE_ATTR))
+        stdscr.addstr(3, 2, f"Downloaded: {sizeof_fmt(downloaded)} ({percent:.1f}%)", get_attr(SIZE_ATTR))
+        stdscr.addstr(4, 2, f"Speed: {sizeof_fmt(speed)}/s  Elapsed: {int(elapsed)}s  ETA: {eta}s", get_attr(INFO_ATTR))
+
+        bar_w = max(10, w - 12)
+        if total:
+            filled = int(bar_w * downloaded / total)
+        else:
+            filled = int((time.time() * 3) % bar_w)
+        bar = '[' + '#' * filled + '-' * (bar_w - filled) + ']'
+        stdscr.addstr(6, 2, bar[:w-4], get_attr(SIZE_ATTR))
+        stdscr.refresh()
+    except Exception:
+        pass
+
+
+def draw_download_summary(stdscr, h, w, success, name, dest_path, url, downloaded, elapsed, err_msg=None, method=""):
+    """
+    Draw final download summary screen (success or failure).
+    
+    Args:
+        stdscr: curses screen object
+        h: window height
+        w: window width
+        success: boolean indicating if download succeeded
+        name: name of the file
+        dest_path: destination path
+        url: download URL
+        downloaded: bytes downloaded
+        elapsed: elapsed time in seconds
+        err_msg: optional error message if download failed
+        method: optional method name (e.g., "wget") to include in the message
+    """
+    try:
+        stdscr.clear()
+        if success:
+            title = f"{ICON_OK} Download"
+            if method:
+                title += f" ({method})"
+            title += " complete" if method else " successful"
+            stdscr.addstr(0, 2, title, get_attr(HEADER_ATTR, curses.A_BOLD))
+            stdscr.addstr(2, 2, f"Name: {name}", get_attr(INFO_ATTR))
+            stdscr.addstr(3, 2, f"Saved to: {dest_path}", get_attr(INFO_ATTR))
+            stdscr.addstr(4, 2, f"Total: {sizeof_fmt(downloaded)}", get_attr(SIZE_ATTR))
+            try:
+                avg = sizeof_fmt(int(downloaded/elapsed)) if elapsed > 0 else '0B'
+            except Exception:
+                avg = '0B'
+            stdscr.addstr(5, 2, f"Time: {int(elapsed)}s  Avg speed: {avg}/s", get_attr(INFO_ATTR))
+        else:
+            title = f"{ICON_ERR} "
+            if method:
+                title += f"{method} download failed"
+            else:
+                title += "Download failed"
+            stdscr.addstr(0, 2, title, get_attr(ERR_ATTR, curses.A_BOLD))
+            stdscr.addstr(2, 2, f"Name: {name}")
+            stdscr.addstr(3, 2, f"URL: {url}")
+            if err_msg:
+                stdscr.addstr(4, 2, f"Error: {err_msg}")
+                stdscr.addstr(6, 2, "Partial bytes downloaded: " + sizeof_fmt(downloaded))
+            else:
+                stdscr.addstr(4, 2, "See wget output above or check network.")
+
+        stdscr.addstr(h - 2, 2, "Press any key to continue...")
+        stdscr.refresh()
+        stdscr.getch()
+    except Exception:
+        pass
+
+
 def download_with_progress(selected, dest_path, stdscr, h, w):
     url = selected.get('url')
     name = selected.get('name', '')
@@ -597,30 +746,7 @@ def download_with_progress(selected, dest_path, stdscr, h, w):
                 downloaded += len(data)
 
                 elapsed = time.time() - start
-                speed = downloaded / elapsed if elapsed > 0 else 0
-                percent = (downloaded / total * 100) if total else 0
-                eta = int((total - downloaded) / speed) if total and speed > 0 else 0
-
-                # draw progress UI
-                try:
-                    stdscr.clear()
-                    header = f"{ICON_DL} Downloading: {name}"
-                    stdscr.addstr(0, 2, header, HEADER_ATTR if HEADER_ATTR is not None else curses.A_BOLD)
-                    stdscr.addstr(1, 2, f"To: {dest_path}", INFO_ATTR if INFO_ATTR is not None else curses.A_NORMAL)
-                    stdscr.addstr(2, 2, f"Size: {sizeof_fmt(total)}", SIZE_ATTR if SIZE_ATTR is not None else curses.A_NORMAL)
-                    stdscr.addstr(3, 2, f"Downloaded: {sizeof_fmt(downloaded)} ({percent:.1f}%)", SIZE_ATTR if SIZE_ATTR is not None else curses.A_NORMAL)
-                    stdscr.addstr(4, 2, f"Speed: {sizeof_fmt(speed)}/s  Elapsed: {int(elapsed)}s  ETA: {eta}s", INFO_ATTR if INFO_ATTR is not None else curses.A_NORMAL)
-
-                    bar_w = max(10, w - 12)
-                    if total:
-                        filled = int(bar_w * downloaded / total)
-                    else:
-                        filled = int((time.time() * 3) % bar_w)
-                    bar = '[' + '#' * filled + '-' * (bar_w - filled) + ']'
-                    stdscr.addstr(6, 2, bar[:w-4], SIZE_ATTR if SIZE_ATTR is not None else curses.A_NORMAL)
-                    stdscr.refresh()
-                except Exception:
-                    pass
+                draw_download_progress(stdscr, w, name, dest_path, total, downloaded, elapsed, start)
 
         success = True
     except Exception as e:
@@ -628,32 +754,8 @@ def download_with_progress(selected, dest_path, stdscr, h, w):
         success = False
 
     # Final summary screen (success or failure)
-    try:
-        elapsed = time.time() - start
-        stdscr.clear()
-
-        if success:
-            stdscr.addstr(0, 2, f"{ICON_OK} Download successful", HEADER_ATTR if HEADER_ATTR is not None else curses.A_BOLD)
-            stdscr.addstr(2, 2, f"Name: {name}", INFO_ATTR if INFO_ATTR is not None else curses.A_NORMAL)
-            stdscr.addstr(3, 2, f"Saved to: {dest_path}", INFO_ATTR if INFO_ATTR is not None else curses.A_NORMAL)
-            stdscr.addstr(4, 2, f"Total: {sizeof_fmt(downloaded)}", SIZE_ATTR if SIZE_ATTR is not None else curses.A_NORMAL)
-            try:
-                avg = sizeof_fmt(int(downloaded/elapsed)) if elapsed > 0 else '0B'
-            except Exception:
-                avg = '0B'
-            stdscr.addstr(5, 2, f"Time: {int(elapsed)}s  Avg speed: {avg}/s", INFO_ATTR if INFO_ATTR is not None else curses.A_NORMAL)
-        else:
-            stdscr.addstr(0, 2, f"{ICON_ERR} Download failed", ERR_ATTR if ERR_ATTR is not None else curses.A_BOLD)
-            stdscr.addstr(2, 2, f"Name: {name}")
-            stdscr.addstr(3, 2, f"URL: {url}")
-            stdscr.addstr(4, 2, f"Error: {err_msg}")
-            stdscr.addstr(6, 2, "Partial bytes downloaded: " + sizeof_fmt(downloaded))
-
-        stdscr.addstr(h - 2, 2, "Press any key to continue...")
-        stdscr.refresh()
-        stdscr.getch()
-    except Exception:
-        pass
+    elapsed = time.time() - start
+    draw_download_summary(stdscr, h, w, success, name, dest_path, url, downloaded, elapsed, err_msg)
 
 
 # wget-based downloader (uses system wget to handle throttling/resuming)
@@ -706,7 +808,7 @@ def download_with_wget(selected, dest_path, stdscr, h, w):
             if line:
                 # display last line of wget output
                 stdscr.clear()
-                stdscr.addstr(0, 2, f"{ICON_DL} Downloading with wget: {name}", HEADER_ATTR if HEADER_ATTR is not None else curses.A_BOLD)
+                stdscr.addstr(0, 2, f"{ICON_DL} Downloading with wget: {name}", get_attr(HEADER_ATTR, curses.A_BOLD))
                 stdscr.addstr(1, 2, f"To: {dest_path}")
                 try:
                     stdscr.addstr(3, 2, line.strip()[:w-4])
@@ -732,7 +834,7 @@ def download_with_wget(selected, dest_path, stdscr, h, w):
                 else:
                     filled = int((time.time() * 3) % bar_w)
                 bar = '[' + '#' * filled + '-' * (bar_w - filled) + ']'
-                stdscr.addstr(7, 2, bar[:w-4], SIZE_ATTR if SIZE_ATTR is not None else curses.A_NORMAL)
+                stdscr.addstr(7, 2, bar[:w-4], get_attr(SIZE_ATTR))
                 stdscr.refresh()
             except Exception:
                 pass
@@ -745,35 +847,13 @@ def download_with_wget(selected, dest_path, stdscr, h, w):
     except Exception:
         success = False
 
-    # final summary similar to builtin
+    # final summary
+    elapsed = time.time() - start
     try:
-        elapsed = time.time() - start
-        stdscr.clear()
-        if success:
-            stdscr.addstr(0, 2, f"{ICON_OK} Download (wget) complete", HEADER_ATTR if HEADER_ATTR is not None else curses.A_BOLD)
-            stdscr.addstr(2, 2, f"Name: {name}")
-            stdscr.addstr(3, 2, f"Saved to: {dest_path}")
-            try:
-                downloaded = os.path.getsize(dest_path)
-            except Exception:
-                downloaded = 0
-            stdscr.addstr(4, 2, f"Total: {sizeof_fmt(downloaded)}")
-            try:
-                avg = sizeof_fmt(int(downloaded/elapsed)) if elapsed > 0 else '0B'
-            except Exception:
-                avg = '0B'
-            stdscr.addstr(5, 2, f"Time: {int(elapsed)}s  Avg speed: {avg}/s")
-        else:
-            stdscr.addstr(0, 2, f"{ICON_ERR} wget download failed", ERR_ATTR if ERR_ATTR is not None else curses.A_BOLD)
-            stdscr.addstr(2, 2, f"Name: {name}")
-            stdscr.addstr(3, 2, f"URL: {url}")
-            stdscr.addstr(4, 2, "See wget output above or check network.")
-
-        stdscr.addstr(h - 2, 2, "Press any key to continue...")
-        stdscr.refresh()
-        stdscr.getch()
+        downloaded = os.path.getsize(dest_path) if success else 0
     except Exception:
-        pass
+        downloaded = 0
+    draw_download_summary(stdscr, h, w, success, name, dest_path, url, downloaded, elapsed, method="wget")
 
 
 # helper wrapper to ask user if they want to use wget
@@ -846,14 +926,14 @@ def curses_main(stdscr, systems, cache):
 
         # Header with icon + system name
         try:
-            stdscr.addstr(0, 2, f"{ICON_GAME}{current_sys} — {len(games)} games"[:w-4], HEADER_ATTR if HEADER_ATTR is not None else curses.A_BOLD)
+            stdscr.addstr(0, 2, f"{ICON_GAME}{current_sys} — {len(games)} games"[:w-4], get_attr(HEADER_ATTR, curses.A_BOLD))
         except Exception:
             stdscr.addstr(0, 2, f"{current_sys} — {len(games)} games")
 
         # Instructions (include grouping keys)
         instr_text = "↑↓ scroll | ←→ system | ENTER open/download | r toggle regions | t toggle types | TAB switch region | f search | i info | q quit"
         try:
-            addstr_scroll(stdscr, 1, 2, instr_text, INSTR_ATTR if INSTR_ATTR is not None else curses.A_NORMAL)
+            addstr_scroll(stdscr, 1, 2, instr_text, get_attr(INSTR_ATTR))
         except Exception:
             addstr_scroll(stdscr, 1, 2, instr_text)
 
@@ -862,7 +942,7 @@ def curses_main(stdscr, systems, cache):
         dfolders = get_download_folders_for_system(current_sys, systems)
         if dfolders:
             try:
-                stdscr.addstr(0, w - 40, f"[id:{sys_id}] {os.path.basename(dfolders[0])}"[:38], SIZE_ATTR if SIZE_ATTR is not None else curses.A_NORMAL)
+                stdscr.addstr(0, w - 40, f"[id:{sys_id}] {os.path.basename(dfolders[0])}"[:38], get_attr(SIZE_ATTR))
             except Exception:
                 stdscr.addstr(0, w - 40, f"[id:{sys_id}] {os.path.basename(dfolders[0])}"[:38])
 
@@ -944,18 +1024,18 @@ def curses_main(stdscr, systems, cache):
             size = game.get("size", "?")
             try:
                 if is_sel:
-                    stdscr.addstr(row, 2, prefix, SELECTED_ATTR if SELECTED_ATTR is not None else curses.A_NORMAL)
+                    stdscr.addstr(row, 2, prefix, get_attr(SELECTED_ATTR))
                     # pass a stable per-item key so scrolling state ties to the item, not to screen row
                     item_key = (current_sys, game.get('url'))
-                    addstr_scroll(stdscr, row, 5, name, SELECTED_ATTR if SELECTED_ATTR is not None else curses.A_NORMAL, key=item_key, max_width=w-20)
-                    stdscr.addstr(row, w - 12, size.rjust(10), SIZE_ATTR if SIZE_ATTR is not None else curses.A_NORMAL)
+                    addstr_scroll(stdscr, row, 5, name, get_attr(SELECTED_ATTR), key=item_key, max_width=w-20)
+                    stdscr.addstr(row, w - 12, size.rjust(10), get_attr(SIZE_ATTR))
                 else:
                     # non-selected lines: reset any scroll state for this item so it restarts when re-selected
                     item_key = (current_sys, game.get('url'))
                     SCROLL_STATES.pop(item_key, None)
                     truncated = name[:max(10, w - 20)]
-                    stdscr.addstr(row, 2, prefix + truncated, NORMAL_ATTR if NORMAL_ATTR is not None else curses.A_NORMAL)
-                    stdscr.addstr(row, w - 12, size.rjust(10), SIZE_ATTR if SIZE_ATTR is not None else curses.A_NORMAL)
+                    stdscr.addstr(row, 2, prefix + truncated, get_attr(NORMAL_ATTR))
+                    stdscr.addstr(row, w - 12, size.rjust(10), get_attr(SIZE_ATTR))
             except Exception:
                 try:
                     stdscr.addstr(row, 2, prefix + name)
@@ -966,13 +1046,13 @@ def curses_main(stdscr, systems, cache):
         if group_mode == 'region':
             regs_line = " | ".join((f"[{r}]" if idx == region_idx else r) for idx, r in enumerate(region_names))
             try:
-                stdscr.addstr(h - 1, 2, regs_line[:w - 4], INFO_ATTR if INFO_ATTR is not None else curses.A_NORMAL)
+                stdscr.addstr(h - 1, 2, regs_line[:w - 4], get_attr(INFO_ATTR))
             except Exception:
                 stdscr.addstr(h - 1, 2, regs_line[:w - 4])
         elif group_mode == 'type':
             types_line = " | ".join((f"[{t}]" if idx == type_idx else t) for idx, t in enumerate(type_names))
             try:
-                stdscr.addstr(h - 1, 2, types_line[:w - 4], INFO_ATTR if INFO_ATTR is not None else curses.A_NORMAL)
+                stdscr.addstr(h - 1, 2, types_line[:w - 4], get_attr(INFO_ATTR))
             except Exception:
                 stdscr.addstr(h - 1, 2, types_line[:w - 4])
 
@@ -1128,8 +1208,8 @@ def curses_main(stdscr, systems, cache):
             curses.echo()
             curses.curs_set(1)
             try:
-                stdscr.addstr(h - 4, 2, "Configure GLOBAL download folders", HEADER_ATTR if HEADER_ATTR is not None else curses.A_BOLD)
-                stdscr.addstr(h - 3, 2, "Comma separated paths (supports ./, ../, ~). Empty to clear.", INSTR_ATTR if INSTR_ATTR is not None else curses.A_NORMAL)
+                stdscr.addstr(h - 4, 2, "Configure GLOBAL download folders", get_attr(HEADER_ATTR, curses.A_BOLD))
+                stdscr.addstr(h - 3, 2, "Comma separated paths (supports ./, ../, ~). Empty to clear.", get_attr(INSTR_ATTR))
             except Exception:
                 pass
             stdscr.addstr(h - 2, 2, "Set GLOBAL download folders (comma separated, empty to clear):" + " " * 10)
@@ -1155,8 +1235,8 @@ def curses_main(stdscr, systems, cache):
             curses.echo()
             curses.curs_set(1)
             try:
-                stdscr.addstr(h - 4, 2, f"Configure download folders for '{current_sys}'", HEADER_ATTR if HEADER_ATTR is not None else curses.A_BOLD)
-                stdscr.addstr(h - 3, 2, "Comma separated paths (supports ./, ../, ~). Empty to clear.", INSTR_ATTR if INSTR_ATTR is not None else curses.A_NORMAL)
+                stdscr.addstr(h - 4, 2, f"Configure download folders for '{current_sys}'", get_attr(HEADER_ATTR, curses.A_BOLD))
+                stdscr.addstr(h - 3, 2, "Comma separated paths (supports ./, ../, ~). Empty to clear.", get_attr(INSTR_ATTR))
             except Exception:
                 pass
             stdscr.addstr(h - 2, 2, f"Set download folders for '{current_sys}' (comma separated, empty to clear):" + " " * 10)
@@ -1229,13 +1309,13 @@ def curses_main(stdscr, systems, cache):
                 while True:
                     stdscr.clear()
                     try:
-                        stdscr.addstr(0, 2, "Confirm download", HEADER_ATTR if HEADER_ATTR is not None else curses.A_BOLD)
-                        stdscr.addstr (1, 2, "Name: ", SELECTED_ATTR if SELECTED_ATTR is not None else curses.A_NORMAL)
-                        addstr_scroll(stdscr, 1, 8, f"{selected.get('name')}", SELECTED_ATTR if SELECTED_ATTR is not None else curses.A_NORMAL, max_width=w-20)
-                        stdscr.addstr(2, 2, f"Size: {size_str}", INFO_ATTR if INFO_ATTR is not None else curses.A_NORMAL)
-                        stdscr.addstr(3, 2, "URL: ", NORMAL_ATTR if NORMAL_ATTR is not None else curses.A_NORMAL)
-                        addstr_scroll(stdscr, 3, 8, f"{selected.get('url')}", NORMAL_ATTR if NORMAL_ATTR is not None else curses.A_NORMAL, max_width=w-20)
-                        stdscr.addstr(5, 2, "Destination:", INFO_ATTR if INFO_ATTR is not None else curses.A_NORMAL)
+                        stdscr.addstr(0, 2, "Confirm download", get_attr(HEADER_ATTR, curses.A_BOLD))
+                        stdscr.addstr (1, 2, "Name: ", get_attr(SELECTED_ATTR))
+                        addstr_scroll(stdscr, 1, 8, f"{selected.get('name')}", get_attr(SELECTED_ATTR), max_width=w-20)
+                        stdscr.addstr(2, 2, f"Size: {size_str}", get_attr(INFO_ATTR))
+                        stdscr.addstr(3, 2, "URL: ", get_attr(NORMAL_ATTR))
+                        addstr_scroll(stdscr, 3, 8, f"{selected.get('url')}", get_attr(NORMAL_ATTR), max_width=w-20)
+                        stdscr.addstr(5, 2, "Destination:", get_attr(INFO_ATTR))
                     except Exception:
                         stdscr.addstr(0, 2, "Confirm download")
 
@@ -1244,22 +1324,22 @@ def curses_main(stdscr, systems, cache):
                     line = 6
                     if sys_folders:
                         try:
-                            stdscr.addstr(line, 4, f"1) System folder: {sys_folders[0]}", NORMAL_ATTR if NORMAL_ATTR is not None else curses.A_NORMAL)
+                            stdscr.addstr(line, 4, f"1) System folder: {sys_folders[0]}", get_attr(NORMAL_ATTR))
                         except Exception:
                             stdscr.addstr(line, 4, f"1) System folder: {sys_folders[0]}")
                         line += 1
                     try:
-                        stdscr.addstr(line, 4, f"2) Default: {default}", NORMAL_ATTR if NORMAL_ATTR is not None else curses.A_NORMAL)
+                        stdscr.addstr(line, 4, f"2) Default: {default}", get_attr(NORMAL_ATTR))
                     except Exception:
                         stdscr.addstr(line, 4, f"2) Default: {default}")
                     line += 1
                     try:
-                        stdscr.addstr(line, 4, "3) Other...", NORMAL_ATTR if NORMAL_ATTR is not None else curses.A_NORMAL)
+                        stdscr.addstr(line, 4, "3) Other...", get_attr(NORMAL_ATTR))
                     except Exception:
                         stdscr.addstr(line, 4, "3) Other...")
                     line += 2
                     try:
-                        stdscr.addstr(line, 2, "Press number to choose, or 'c' to cancel", INSTR_ATTR if INSTR_ATTR is not None else curses.A_NORMAL)
+                        stdscr.addstr(line, 2, "Press number to choose, or 'c' to cancel", get_attr(INSTR_ATTR))
                     except Exception:
                         stdscr.addstr(line, 2, "Press number to choose, or 'c' to cancel")
                     stdscr.refresh()
@@ -1291,7 +1371,7 @@ def curses_main(stdscr, systems, cache):
                         curses.curs_set(1)
                         set_input_blocking(stdscr, True)
                         try:
-                            stdscr.addstr(line + 1, 2, "Enter folder path: ", INSTR_ATTR if INSTR_ATTR is not None else curses.A_NORMAL)
+                            stdscr.addstr(line + 1, 2, "Enter folder path: ", get_attr(INSTR_ATTR))
                         except Exception:
                             stdscr.addstr(line + 1, 2, "Enter folder path: ")
                         stdscr.move(line + 1, 20)

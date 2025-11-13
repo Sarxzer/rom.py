@@ -159,6 +159,11 @@ All trademarks and content belong to their respective owners.
 **Created by [Sarxzer](https://github.com/Sarxzer)**
 A simple project made for retro game lovers and terminal enthusiasts.
 
+## 🤖 AI Assistance Disclaimer
+
+Some parts of this project were assisted by GitHub Copilot — mainly to speed up coding and experiment with refactoring.
+Everything suggested by the AI was carefully reviewed and tested by me, so no blindly sitting back while the AI does all the work. I still make the calls, test the results, and keep full control of the project chaos!
+
 ## 📝 License
 
 This project is open-source and licensed under the **MIT License**.  
